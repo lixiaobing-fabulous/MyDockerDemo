@@ -24,6 +24,7 @@ func main() {
 	app.Before = func(context *cli.Context) error {
 		log.SetFormatter(&log.JSONFormatter{})
 		log.SetOutput(os.Stdout)
+		return nil
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
