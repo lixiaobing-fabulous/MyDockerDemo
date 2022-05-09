@@ -52,6 +52,11 @@ var RunCommand = cli.Command{
 			Name:  "d",
 			Usage: "detach container",
 		},
+		// 提供run后面的-name指定容器名字参数
+		cli.StringFlag{
+			Name:  "name",
+			Usage: "container name",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
@@ -69,7 +74,8 @@ var RunCommand = cli.Command{
 			CpuSet:      context.String("cpuSet"),
 		}
 		volume := context.String("v")
-		run.Run(tty, detach, cmdArray, resConfig, volume)
+		containerName := context.String("name")
+		run.Run(tty, detach, cmdArray, resConfig, volume, containerName)
 		return nil
 	},
 }
@@ -83,5 +89,13 @@ var CommitCommand = cli.Command{
 		}
 		imageName := context.Args().Get(0)
 		return run.CommitContainer(imageName)
+	},
+}
+
+var ListCommand = cli.Command{
+	Name:  "ps",
+	Usage: "list all the container",
+	Action: func(context *cli.Context) error {
+		return run.ListContainers()
 	},
 }

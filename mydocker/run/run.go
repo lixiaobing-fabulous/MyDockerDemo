@@ -4,13 +4,18 @@ import (
 	"MyDockerDemo/mydocker/cgroup"
 	"MyDockerDemo/mydocker/cgroup/subsystem"
 	"MyDockerDemo/mydocker/container"
+	"encoding/json"
+	"fmt"
 	log "github.com/sirupsen/logrus"
+	"math/rand"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
-func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume string) {
+func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume string, containerName string) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		log.Errorf("Run get pwd err: %v", err)
@@ -24,6 +29,14 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 		deleteWorkSpace(rootUrl, mntUrl, volume)
 		return
 	}
+
+	// 记录容器信息
+	containerName, err = recordContainerInfo(parent.Process.Pid, cmdArray, containerName)
+	if err != nil {
+		log.Errorf("record contariner info err: %v", err)
+		return
+	}
+
 	cgroupManager := cgroup.NewCgroupManager("mydocker-cgroup")
 	defer cgroupManager.Destroy()
 	if err := cgroupManager.Apply(parent.Process.Pid); err != nil {
@@ -39,10 +52,63 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 	if !detach {
 		_ = parent.Wait()
 		deleteWorkSpace(rootUrl, mntUrl, volume)
+		deleteContainerInfo(containerName)
 	}
 	os.Exit(-1)
 }
+func deleteContainerInfo(containerName string) {
+	dirUrl := fmt.Sprintf(container.DefaultInfoLocation, containerName)
+	if err := os.RemoveAll(dirUrl); err != nil {
+		log.Errorf("remove dir %s err: %v", dirUrl, err)
+	}
+}
 
+func recordContainerInfo(pid int, cmdArray []string, containerName string) (string, error) {
+	id := randStringBytes(10)
+	createTime := time.Now().Format("2000-01-01 00:00:00")
+	command := strings.Join(cmdArray, " ")
+	if containerName == "" {
+		containerName = id
+	}
+	containerInfo := &container.ContainerInfo{
+		ID:         id,
+		Pid:        strconv.Itoa(pid),
+		Command:    command,
+		CreateTime: createTime,
+		Status:     container.RUNNING,
+		Name:       containerName,
+	}
+	jsonBytes, err := json.Marshal(containerInfo)
+	if err != nil {
+		return "", fmt.Errorf("container info to json string err: %v", err)
+	}
+	jsonStr := string(jsonBytes)
+	dirUrl := fmt.Sprintf(container.DefaultInfoLocation, containerName)
+	if err := os.MkdirAll(dirUrl, 0622); err != nil {
+		return "", fmt.Errorf("mkdir %s err: %v", dirUrl, err)
+	}
+	fileName := dirUrl + "/" + container.ConfigName
+	file, err := os.Create(fileName)
+	defer file.Close()
+	if err != nil {
+		return "", fmt.Errorf("create file %s, err: %v", fileName, err)
+	}
+
+	if _, err := file.WriteString(jsonStr); err != nil {
+		return "", fmt.Errorf("file write string err: %v", err)
+	}
+	return containerName, nil
+}
+
+func randStringBytes(n int) string {
+	letterBytes := "1234567890"
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
 func deleteWorkSpace(rootUrl, mntUrl, volume string) {
 	unmountVolume(mntUrl, volume)
 	deleteMountPoint(mntUrl)
