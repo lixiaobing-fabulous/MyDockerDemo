@@ -7,6 +7,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+	"os"
 	"strings"
 )
 
@@ -57,6 +58,10 @@ var RunCommand = cli.Command{
 			Name:  "name",
 			Usage: "container name",
 		},
+		cli.StringSliceFlag{
+			Name:  "e",
+			Usage: "set environment",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
@@ -75,7 +80,9 @@ var RunCommand = cli.Command{
 		}
 		volume := context.String("v")
 		containerName := context.String("name")
-		run.Run(tty, detach, cmdArray, resConfig, volume, containerName)
+		envSlice := context.StringSlice("e")
+
+		run.Run(tty, detach, cmdArray, resConfig, volume, containerName, envSlice)
 		return nil
 	},
 }
@@ -109,5 +116,62 @@ var LogCommand = cli.Command{
 		}
 		containerName := context.Args().Get(0)
 		return run.LogContainer(containerName)
+	},
+}
+
+var ExecCommand = cli.Command{
+	Name:  "exec",
+	Usage: "exec a command into container",
+	Action: func(context *cli.Context) {
+		if os.Getenv(run.EnvExecPid) != "" {
+			log.Infof("pid callback pid %d", os.Getgid())
+			return
+		}
+
+		// 我们希望命令格式是docker exec 容器名 命令
+		if len(context.Args()) < 2 {
+			log.Errorf("missing container name or command")
+			return
+		}
+
+		containerName := context.Args().Get(0)
+		var commandArray []string
+		for _, arg := range context.Args().Tail() {
+			commandArray = append(commandArray, arg)
+		}
+
+		// 执行命令
+		if err := run.ExecContainer(containerName, commandArray); err != nil {
+			log.Errorf("%v", err)
+		}
+	},
+}
+
+var StopCommand = cli.Command{
+	Name:  "stop",
+	Usage: "stop container",
+	Action: func(context *cli.Context) {
+		if len(context.Args()) < 1 {
+			log.Errorf("missing container name")
+			return
+		}
+		containerName := context.Args().Get(0)
+		if err := run.StopContainer(containerName); err != nil {
+			log.Errorf("stop container err: %v", err)
+		}
+	},
+}
+var RemoveCommand = cli.Command{
+	Name:  "rm",
+	Usage: "remove container",
+	Action: func(context *cli.Context) {
+		if len(context.Args()) < 1 {
+			log.Errorf("missing container name")
+			return
+		}
+		containerName := context.Args().Get(0)
+		if err := run.RemoveContainer(containerName); err != nil {
+			log.Errorf("%v", err)
+		}
 	},
 }

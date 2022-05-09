@@ -15,7 +15,9 @@ import (
 	"time"
 )
 
-func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume string, containerName string) {
+func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume string, containerName string, envSlice []string) {
+	id, containerName := getContainerName(containerName)
+
 	pwd, err := os.Getwd()
 	if err != nil {
 		log.Errorf("Run get pwd err: %v", err)
@@ -23,7 +25,7 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 	}
 	mntUrl := pwd + "/mnt/"
 	rootUrl := pwd + "/"
-	parent, writePipe := container.NewParentProcess(tty, containerName, rootUrl, mntUrl, volume)
+	parent, writePipe := container.NewParentProcess(tty, containerName, rootUrl, mntUrl, volume, envSlice)
 	if err := parent.Start(); err != nil {
 		log.Error(err)
 		deleteWorkSpace(rootUrl, mntUrl, volume)
@@ -31,7 +33,7 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 	}
 
 	// 记录容器信息
-	containerName, err = recordContainerInfo(parent.Process.Pid, cmdArray, containerName)
+	containerName, err = recordContainerInfo(parent.Process.Pid, cmdArray, id, containerName)
 	if err != nil {
 		log.Errorf("record contariner info err: %v", err)
 		return
@@ -63,13 +65,9 @@ func deleteContainerInfo(containerName string) {
 	}
 }
 
-func recordContainerInfo(pid int, cmdArray []string, containerName string) (string, error) {
-	id := randStringBytes(10)
+func recordContainerInfo(pid int, cmdArray []string, id, containerName string) (string, error) {
 	createTime := time.Now().Format("2000-01-01 00:00:00")
 	command := strings.Join(cmdArray, " ")
-	if containerName == "" {
-		containerName = id
-	}
 	containerInfo := &container.ContainerInfo{
 		ID:         id,
 		Pid:        strconv.Itoa(pid),
@@ -160,4 +158,11 @@ func sendInitCommand(array []string, writePipe *os.File) {
 	if err := writePipe.Close(); err != nil {
 		log.Errorf("write pipe close err: %v", err)
 	}
+}
+func getContainerName(containerName string) (string, string) {
+	id := randStringBytes(10)
+	if containerName == "" {
+		containerName = id
+	}
+	return id, containerName
 }

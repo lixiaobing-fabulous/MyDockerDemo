@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func NewParentProcess(tty bool, containerName, rootUrl, mntUrl string, volume string) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, containerName, rootUrl, mntUrl string, volume string, envSlice []string) (*exec.Cmd, *os.File) {
 	readPipe, writePipe, err := os.Pipe()
 	if err != nil {
 		log.Errorf("create pipe error: %v", err)
@@ -47,6 +47,7 @@ func NewParentProcess(tty bool, containerName, rootUrl, mntUrl string, volume st
 		return nil, nil
 	}
 	cmd.Dir = mntUrl
+	cmd.Env = append(os.Environ(), envSlice...)
 	return cmd, writePipe
 }
 
