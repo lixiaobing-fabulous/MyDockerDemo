@@ -10,7 +10,6 @@ import (
 )
 
 func RunContainerInitProcess() error {
-	log.Infof("command %s, args %s", command, args)
 
 	// private 方式挂载，不影响宿主机的挂载
 	err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, "")
