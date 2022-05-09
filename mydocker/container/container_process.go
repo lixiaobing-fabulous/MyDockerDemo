@@ -75,11 +75,13 @@ func createMountPoint(rootUrl string, mntUrl string) error {
 	}
 	// 把writeLayer和busybox目录mount到mnt目录下
 	dirs := "dirs=" + rootUrl + "writeLayer:" + rootUrl + "busybox"
+	log.Infof("mount", "-t", "aufs", "-o", dirs, "none", mntUrl)
+	fmt.Println("mount", "-t", "aufs", "-o", dirs, "none", mntUrl)
 	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mntUrl)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("mmt dir err: %v", err)
+		return fmt.Errorf("mnt dir err: %v", err)
 	}
 	return nil
 }
