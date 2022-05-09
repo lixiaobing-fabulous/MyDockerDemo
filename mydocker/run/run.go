@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func Run(tty bool, cmdArray []string, config *subsystem.ResourceConfig, volume string) {
+func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume string) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		log.Errorf("Run get pwd err: %v", err)
@@ -36,8 +36,10 @@ func Run(tty bool, cmdArray []string, config *subsystem.ResourceConfig, volume s
 	}
 	sendInitCommand(cmdArray, writePipe)
 	log.Infof("parent process run")
-	_ = parent.Wait()
-	deleteWorkSpace(rootUrl, mntUrl, volume)
+	if !detach {
+		_ = parent.Wait()
+		deleteWorkSpace(rootUrl, mntUrl, volume)
+	}
 	os.Exit(-1)
 }
 
