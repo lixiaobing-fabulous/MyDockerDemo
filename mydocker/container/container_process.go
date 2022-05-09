@@ -26,7 +26,7 @@ func NewParentProcess(tty bool, rootUrl, mntUrl string, volume string) (*exec.Cm
 		cmd.Stderr = os.Stderr
 	}
 	cmd.ExtraFiles = []*os.File{readPipe}
-	if err := newWorkSpace(rootUrl, mntUrl, volumn); err != nil {
+	if err := newWorkSpace(rootUrl, mntUrl, volume); err != nil {
 		log.Errorf("new work space err: %v", err)
 		return nil, nil
 	}
@@ -34,7 +34,7 @@ func NewParentProcess(tty bool, rootUrl, mntUrl string, volume string) (*exec.Cm
 	return cmd, writePipe
 }
 
-func newWorkSpace(rootUrl string, mntUrl string) error {
+func newWorkSpace(rootUrl string, mntUrl string, volume string) error {
 	if err := createReadOnlyLayer(rootUrl); err != nil {
 		return err
 	}
