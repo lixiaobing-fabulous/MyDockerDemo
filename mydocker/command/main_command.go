@@ -18,7 +18,7 @@ var InitCommand = cli.Command{
 		cmd := context.Args().Get(0)
 		args := strings.Split(context.Args().Get(1), " ")
 		log.Infof("command: %s, args: %s", cmd, args)
-		return container.RunContainerInitProcess(cmd, args)
+		return container.RunContainerInitProcess()
 	},
 }
 
