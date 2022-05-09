@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func NewParentProcess(tty bool, rootUrl, mntUrl string, volume string) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, containerName, rootUrl, mntUrl string, volume string) (*exec.Cmd, *os.File) {
 	readPipe, writePipe, err := os.Pipe()
 	if err != nil {
 		log.Errorf("create pipe error: %v", err)
@@ -24,6 +24,22 @@ func NewParentProcess(tty bool, rootUrl, mntUrl string, volume string) (*exec.Cm
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+	} else {
+		dirUrl := fmt.Sprintf(DefaultInfoLocation, containerName)
+		if err := os.MkdirAll(dirUrl, 0622); err != nil {
+			log.Errorf("mkdir dir %s, err: %v", dirUrl, err)
+			return nil, nil
+		}
+
+		stdLogFilePath := dirUrl + ContainerLogFile
+		stdLogFile, err := os.Create(stdLogFilePath)
+		if err != nil {
+			log.Errorf("create file %s, err: %v", stdLogFilePath, err)
+			return nil, nil
+		}
+
+		cmd.Stdout = stdLogFile
+
 	}
 	cmd.ExtraFiles = []*os.File{readPipe}
 	if err := newWorkSpace(rootUrl, mntUrl, volume); err != nil {

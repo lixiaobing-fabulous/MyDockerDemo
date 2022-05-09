@@ -23,7 +23,7 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 	}
 	mntUrl := pwd + "/mnt/"
 	rootUrl := pwd + "/"
-	parent, writePipe := container.NewParentProcess(tty, rootUrl, mntUrl, volume)
+	parent, writePipe := container.NewParentProcess(tty, containerName, rootUrl, mntUrl, volume)
 	if err := parent.Start(); err != nil {
 		log.Error(err)
 		deleteWorkSpace(rootUrl, mntUrl, volume)
