@@ -2,12 +2,14 @@ package container
 
 import (
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
-func RunContainerInitProcess(command string, args []string) error {
+func RunContainerInitProcess() error {
 	log.Infof("command %s, args %s", command, args)
 
 	// private 方式挂载，不影响宿主机的挂载
@@ -22,14 +24,28 @@ func RunContainerInitProcess(command string, args []string) error {
 	if err != nil {
 		return err
 	}
-	path, err := exec.LookPath(command)
+
+	cmdArray := readUserCommand()
+
+	path, err := exec.LookPath(cmdArray[0])
 	if err != nil {
-		log.Errorf("can't find exec path: %s %v", command, err)
+		log.Errorf("can't find exec path: %s %v", cmdArray[0], err)
 		return err
 	}
 	log.Infof("find path: %s", path)
-	if err := syscall.Exec(path, args, os.Environ()); err != nil {
+	if err := syscall.Exec(path, cmdArray, os.Environ()); err != nil {
 		log.Errorf("syscall exec err: %v", err.Error())
 	}
 	return nil
+}
+
+func readUserCommand() []string {
+	readPipe := os.NewFile(uintptr(3), "pipe")
+	msg, err := ioutil.ReadAll(readPipe)
+	if err != nil {
+		log.Errorf("read init argv pipe err: %v", err)
+		return nil
+	}
+	return strings.Split(string(msg), " ")
+
 }
