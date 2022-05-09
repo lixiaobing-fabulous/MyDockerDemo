@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func Run(tty bool, cmdArray []string, config *subsystem.ResourceConfig) {
+func Run(tty bool, cmdArray []string, config *subsystem.ResourceConfig, volume string) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		log.Errorf("Run get pwd err: %v", err)
@@ -18,9 +18,10 @@ func Run(tty bool, cmdArray []string, config *subsystem.ResourceConfig) {
 	}
 	mntUrl := pwd + "/mnt/"
 	rootUrl := pwd + "/"
-	parent, writePipe := container.NewParentProcess(tty, rootUrl, mntUrl)
+	parent, writePipe := container.NewParentProcess(tty, rootUrl, mntUrl, volume)
 	if err := parent.Start(); err != nil {
 		log.Error(err)
+		deleteWorkSpace(rootUrl, mntUrl, volume)
 		return
 	}
 	cgroupManager := cgroup.NewCgroupManager("mydocker-cgroup")
@@ -36,15 +37,33 @@ func Run(tty bool, cmdArray []string, config *subsystem.ResourceConfig) {
 	sendInitCommand(cmdArray, writePipe)
 	log.Infof("parent process run")
 	_ = parent.Wait()
-	deleteWorkSpace(rootUrl, mntUrl)
+	deleteWorkSpace(rootUrl, mntUrl, volume)
 	os.Exit(-1)
 }
 
-func deleteWorkSpace(rootUrl, mntUrl string) {
+func deleteWorkSpace(rootUrl, mntUrl, volume string) {
+	unmountVolume(mntUrl, volume)
 	deleteMountPoint(mntUrl)
 	deleteWriteLayer(rootUrl)
 }
+func unmountVolume(mntUrl string, volume string) {
+	if volume == "" {
+		return
+	}
+	volumeUrls := strings.Split(volume, ":")
+	if len(volumeUrls) != 2 || volumeUrls[0] == "" || volumeUrls[1] == "" {
+		return
+	}
 
+	// 卸载容器内的 volume 挂载点的文件系统
+	containerUrl := mntUrl + volumeUrls[1]
+	cmd := exec.Command("umount", containerUrl)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Errorf("ummount volume failed: %v", err)
+	}
+}
 func deleteMountPoint(mntUrl string) {
 	cmd := exec.Command("umount", mntUrl)
 	cmd.Stdout = os.Stdout

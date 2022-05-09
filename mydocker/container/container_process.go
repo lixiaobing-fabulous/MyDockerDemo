@@ -5,10 +5,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
-func NewParentProcess(tty bool, rootUrl, mntUrl string) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, rootUrl, mntUrl string, volume string) (*exec.Cmd, *os.File) {
 	readPipe, writePipe, err := os.Pipe()
 	if err != nil {
 		log.Errorf("create pipe error: %v", err)
@@ -25,7 +26,7 @@ func NewParentProcess(tty bool, rootUrl, mntUrl string) (*exec.Cmd, *os.File) {
 		cmd.Stderr = os.Stderr
 	}
 	cmd.ExtraFiles = []*os.File{readPipe}
-	if err := newWorkSpace(rootUrl, mntUrl); err != nil {
+	if err := newWorkSpace(rootUrl, mntUrl, volumn); err != nil {
 		log.Errorf("new work space err: %v", err)
 		return nil, nil
 	}
@@ -41,6 +42,9 @@ func newWorkSpace(rootUrl string, mntUrl string) error {
 		return err
 	}
 	if err := createMountPoint(rootUrl, mntUrl); err != nil {
+		return err
+	}
+	if err := mountExtractVolume(mntUrl, volume); err != nil {
 		return err
 	}
 	return nil
@@ -85,7 +89,43 @@ func createMountPoint(rootUrl string, mntUrl string) error {
 	}
 	return nil
 }
+func mountExtractVolume(mntUrl, volume string) error {
+	if volume == "" {
+		return nil
+	}
+	volumeUrls := strings.Split(volume, ":")
+	length := len(volumeUrls)
+	if length != 2 || volumeUrls[0] == "" || volumeUrls[1] == "" {
+		return fmt.Errorf("volume parameter input is not corrent")
+	}
+	return mountVolume(mntUrl, volumeUrls)
+}
 
+func mountVolume(mntUrl string, volumeUrls []string) error {
+	parentUrl := volumeUrls[0]
+	exist, err := pathExist(parentUrl)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		// 使用mkdir all 递归创建文件夹
+		if err := os.MkdirAll(parentUrl, 0777); err != nil {
+			return fmt.Errorf("mkdir parent dir err: %v", err)
+		}
+	}
+	containerUrl := mntUrl + volumeUrls[1]
+	if err := os.Mkdir(containerUrl, 0777); err != nil {
+		return fmt.Errorf("mkdir container volume err: %v", err)
+	}
+	dirs := "dirs=" + parentUrl
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", containerUrl)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("mount volume err: %v", err)
+	}
+	return nil
+}
 func pathExist(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
