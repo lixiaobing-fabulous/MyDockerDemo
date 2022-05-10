@@ -17,6 +17,7 @@ import (
 
 func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume string, containerName string, envSlice []string) {
 	id, containerName := getContainerName(containerName)
+	log.Infof("containerName %s", containerName)
 
 	pwd, err := os.Getwd()
 	if err != nil {
