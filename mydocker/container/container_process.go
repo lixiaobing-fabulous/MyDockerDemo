@@ -61,8 +61,7 @@ func newWorkSpace(rootUrl string, mntUrl string, volume string, containerName st
 	if err := createMountPoint(rootUrl, mntUrl, containerName); err != nil {
 		return err
 	}
-	if err := mountExtractVolume(mntUrl, volume， containerName)
-	err != nil{
+	if err := mountExtractVolume(mntUrl, volume, containerName); err != nil {
 		return err
 	}
 	return nil
