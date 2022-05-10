@@ -1,6 +1,7 @@
 package run
 
 import (
+	_ "MyDockerDemo/mydocker/nsenter"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
