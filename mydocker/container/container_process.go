@@ -108,7 +108,7 @@ func createMountPoint(rootUrl string, mntUrl string, containerName string) error
 	}
 
 	// 把writeLayer和busybox目录mount到mnt目录下
-	dirs := "dirs=" + rootUrl + "writeLayer:" + rootUrl + "busybox"
+	dirs := "dirs=" + rootUrl + "writeLayer/" + containerName + ":" + rootUrl + "busybox"
 	log.Infof("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
 	fmt.Println("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
 	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
