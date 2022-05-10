@@ -88,7 +88,7 @@ func createWriteLayer(rootUrl, containerName string) error {
 		return err
 	}
 	if !exist {
-		if err := os.Mkdir(writeUrl, 0777); err != nil {
+		if err := os.MkdirAll(writeUrl, 0777); err != nil {
 			return fmt.Errorf("create write layer failed: %v", err)
 		}
 	}
@@ -102,7 +102,7 @@ func createMountPoint(rootUrl string, mntUrl string, containerName string) error
 		return err
 	}
 	if !exist {
-		if err := os.Mkdir(mountPath, 0777); err != nil {
+		if err := os.MkdirAll(mountPath, 0777); err != nil {
 			return fmt.Errorf("mkdir faild: %v", err)
 		}
 	}
@@ -144,7 +144,7 @@ func mountVolume(mntUrl string, volumeUrls []string) error {
 		}
 	}
 	containerUrl := mntUrl + volumeUrls[1]
-	if err := os.Mkdir(containerUrl, 0777); err != nil {
+	if err := os.MkdirAll(containerUrl, 0777); err != nil {
 		return fmt.Errorf("mkdir container volume err: %v", err)
 	}
 	dirs := "dirs=" + parentUrl
