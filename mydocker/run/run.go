@@ -28,7 +28,7 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 	parent, writePipe := container.NewParentProcess(tty, containerName, rootUrl, mntUrl, volume, envSlice)
 	if err := parent.Start(); err != nil {
 		log.Error(err)
-		deleteWorkSpace(rootUrl, mntUrl, volume)
+		deleteWorkSpace(rootUrl, mntUrl, volume, containerName)
 		return
 	}
 
@@ -53,7 +53,7 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 	log.Infof("parent process run")
 	if !detach {
 		_ = parent.Wait()
-		deleteWorkSpace(rootUrl, mntUrl, volume)
+		deleteWorkSpace(rootUrl, mntUrl, volume, containerName)
 		deleteContainerInfo(containerName)
 	}
 	os.Exit(-1)
@@ -107,12 +107,12 @@ func randStringBytes(n int) string {
 	}
 	return string(b)
 }
-func deleteWorkSpace(rootUrl, mntUrl, volume string) {
-	unmountVolume(mntUrl, volume)
-	deleteMountPoint(mntUrl)
-	deleteWriteLayer(rootUrl)
+func deleteWorkSpace(rootUrl, mntUrl, volume, containerName string) {
+	unmountVolume(mntUrl, volume, containerName)
+	deleteMountPoint(mntUrl + containerName + "/")
+	deleteWriteLayer(rootUrl, containerName)
 }
-func unmountVolume(mntUrl string, volume string) {
+func unmountVolume(mntUrl string, volume string, containerName string) {
 	if volume == "" {
 		return
 	}
@@ -122,7 +122,7 @@ func unmountVolume(mntUrl string, volume string) {
 	}
 
 	// 卸载容器内的 volume 挂载点的文件系统
-	containerUrl := mntUrl + volumeUrls[1]
+	containerUrl := mntUrl + containerName + "/" + volumeUrls[1]
 	cmd := exec.Command("umount", containerUrl)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -141,8 +141,8 @@ func deleteMountPoint(mntUrl string) {
 		log.Errorf("deleteMountPoint remove %s err : %v", mntUrl, err)
 	}
 }
-func deleteWriteLayer(rootUrl string) {
-	writeUrl := rootUrl + "writeLayer/"
+func deleteWriteLayer(rootUrl, containerName string) {
+	writeUrl := rootUrl + "writeLayer/" + containerName
 	if err := os.RemoveAll(writeUrl); err != nil {
 		log.Errorf("deleteMountPoint remove %s err : %v", writeUrl, err)
 	}
