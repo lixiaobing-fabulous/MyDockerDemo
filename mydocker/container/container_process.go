@@ -46,7 +46,7 @@ func NewParentProcess(tty bool, containerName, rootUrl, mntUrl string, volume st
 		log.Errorf("new work space err: %v", err)
 		return nil, nil
 	}
-	cmd.Dir = mntUrl
+	cmd.Dir = mntUrl + containerName
 	cmd.Env = append(os.Environ(), envSlice...)
 	return cmd, writePipe
 }
