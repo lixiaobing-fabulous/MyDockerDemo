@@ -43,6 +43,7 @@ func (b *BridgeNetworkDriver) Delete(network NetWork) error {
 	}
 	return netlink.LinkDel(br)
 }
+
 func (b *BridgeNetworkDriver) Connect(network *NetWork, endpoint *Endpoint) error {
 	bridgeName := network.Name
 	br, err := netlink.LinkByName(bridgeName)
@@ -100,6 +101,21 @@ func (b *BridgeNetworkDriver) initBridge(n *NetWork) error {
 	log.Infof("setInterfaceUp success")
 	return nil
 }
+
+func (b *BridgeNetworkDriver) deleteBridge(n *NetWork) error {
+	bridgeName := n.Name
+	// get the link
+	l, err := netlink.LinkByName(bridgeName)
+	if err != nil {
+		return fmt.Errorf("get link with name %s failed: %w", bridgeName, err)
+	}
+	// delete the link
+	if err := netlink.LinkDel(l); err != nil {
+		return fmt.Errorf("remove bridge interface %s err: %w", bridgeName, err)
+	}
+	return nil
+}
+
 func createBridgeInterface(bridgeName string) error {
 	_, err := net.InterfaceByName(bridgeName)
 	if err == nil || !strings.Contains(err.Error(), "no such network interface") {
@@ -116,6 +132,7 @@ func createBridgeInterface(bridgeName string) error {
 	}
 	return nil
 }
+
 func setInterfaceUp(interfaceName string) error {
 	iface, err := netlink.LinkByName(interfaceName)
 	if err != nil {
