@@ -40,7 +40,7 @@ func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, 
 		return
 	}
 
-	cgroupManager := cgroup.NewCgroupManager("mydocker-cgroup")
+	cgroupManager := cgroup.NewCgroupManager("mydocker-cgroup-" + containerName)
 	defer cgroupManager.Destroy()
 	if err := cgroupManager.Apply(parent.Process.Pid); err != nil {
 		log.Errorf("cgroup apply err: %v", err)

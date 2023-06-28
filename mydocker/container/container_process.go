@@ -61,7 +61,7 @@ func newWorkSpace(rootUrl string, mntUrl string, volume string, containerName st
 	if err := createMountPoint(rootUrl, mntUrl, containerName); err != nil {
 		return err
 	}
-	if err := mountExtractVolume(mntUrl, volume, containerName); err != nil {
+	if err := mountExtractVolume(rootUrl, mntUrl, volume, containerName); err != nil {
 		return err
 	}
 	return nil
@@ -95,7 +95,37 @@ func createWriteLayer(rootUrl, containerName string) error {
 	return nil
 }
 
+func createTmpWorkDirLayer(rootUrl, containerName string) error {
+	writeUrl := rootUrl + "temp/workdir/" + containerName + "/"
+	exist, err := pathExist(writeUrl)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		if err := os.MkdirAll(writeUrl, 0777); err != nil {
+			return fmt.Errorf("create write layer failed: %v", err)
+		}
+	}
+	return nil
+}
+func createTmpMntWorkDirLayer(rootUrl, containerName string) error {
+	writeUrl := rootUrl + "temp/mnt_workdir/" + containerName + "/"
+	exist, err := pathExist(writeUrl)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		if err := os.MkdirAll(writeUrl, 0777); err != nil {
+			return fmt.Errorf("create write layer failed: %v", err)
+		}
+	}
+	return nil
+}
+
 func createMountPoint(rootUrl string, mntUrl string, containerName string) error {
+	if err := createTmpWorkDirLayer(rootUrl, containerName); err != nil {
+		return err
+	}
 	mountPath := mntUrl + containerName + "/"
 	exist, err := pathExist(mountPath)
 	if err != nil && !os.IsNotExist(err) {
@@ -106,12 +136,14 @@ func createMountPoint(rootUrl string, mntUrl string, containerName string) error
 			return fmt.Errorf("mkdir faild: %v", err)
 		}
 	}
+	dirs := "lowerdir=" + rootUrl + "busybox" + ",upperdir=" + rootUrl + "writeLayer/" + containerName + ",workdir=" + rootUrl + "temp/workdir/" + containerName + "/"
+	log.Infof("mount", "-t", "overlay", "-o", dirs, "overlay", mountPath)
+	fmt.Println("mount", "-t", "overlay", "-o", dirs, "overlay", mountPath)
+	cmd := exec.Command("mount", "-t", "overlay", "-o", dirs, "overlay", mountPath)
 
 	// 把writeLayer和busybox目录mount到mnt目录下
-	dirs := "dirs=" + rootUrl + "writeLayer/" + containerName + ":" + rootUrl + "busybox"
-	log.Infof("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
-	fmt.Println("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
-	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
+	//dirs := "dirs=" + rootUrl + "writeLayer/" + containerName + ":" + rootUrl + "busybox"
+	//cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -119,7 +151,7 @@ func createMountPoint(rootUrl string, mntUrl string, containerName string) error
 	}
 	return nil
 }
-func mountExtractVolume(mntUrl, volume, containerName string) error {
+func mountExtractVolume(rootUrl, mntUrl, volume, containerName string) error {
 	if volume == "" {
 		return nil
 	}
@@ -128,10 +160,13 @@ func mountExtractVolume(mntUrl, volume, containerName string) error {
 	if length != 2 || volumeUrls[0] == "" || volumeUrls[1] == "" {
 		return fmt.Errorf("volume parameter input is not corrent")
 	}
-	return mountVolume(mntUrl+containerName+"/", volumeUrls)
+	if err := createTmpMntWorkDirLayer(rootUrl, containerName); err != nil {
+		return err
+	}
+	return mountVolume(mntUrl+containerName+"/", volumeUrls, rootUrl+"temp/mnt_workdir/"+containerName+"/")
 }
 
-func mountVolume(mntUrl string, volumeUrls []string) error {
+func mountVolume(mntUrl string, volumeUrls []string, workdir string) error {
 	parentUrl := volumeUrls[0]
 	exist, err := pathExist(parentUrl)
 	if err != nil && !os.IsNotExist(err) {
@@ -147,8 +182,10 @@ func mountVolume(mntUrl string, volumeUrls []string) error {
 	if err := os.MkdirAll(containerUrl, 0777); err != nil {
 		return fmt.Errorf("mkdir container volume err: %v", err)
 	}
-	dirs := "dirs=" + parentUrl
-	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", containerUrl)
+	dirs := "upperdir=" + parentUrl + ",workdir=" + workdir
+	log.Infof("mount", "-t", "overlay", "-o", dirs, "overlay", containerUrl)
+	fmt.Println("mount", "-t", "overlay", "-o", dirs, "overlay", containerUrl)
+	cmd := exec.Command("mount", "-t", "overlay", "-o", dirs, "overlay", containerUrl)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
