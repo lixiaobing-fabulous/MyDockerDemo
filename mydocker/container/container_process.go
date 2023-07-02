@@ -121,6 +121,19 @@ func createTmpMntWorkDirLayer(rootUrl, containerName string) error {
 	}
 	return nil
 }
+func createTmpMntLowerDirLayer(rootUrl, containerName string) error {
+	writeUrl := rootUrl + "temp/mnt_lowerdir/" + containerName + "/"
+	exist, err := pathExist(writeUrl)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		if err := os.MkdirAll(writeUrl, 0777); err != nil {
+			return fmt.Errorf("create write layer failed: %v", err)
+		}
+	}
+	return nil
+}
 
 func createMountPoint(rootUrl string, mntUrl string, containerName string) error {
 	if err := createTmpWorkDirLayer(rootUrl, containerName); err != nil {
@@ -163,10 +176,13 @@ func mountExtractVolume(rootUrl, mntUrl, volume, containerName string) error {
 	if err := createTmpMntWorkDirLayer(rootUrl, containerName); err != nil {
 		return err
 	}
-	return mountVolume(mntUrl+containerName+"/", volumeUrls, rootUrl+"temp/mnt_workdir/"+containerName+"/")
+	if err := createTmpMntLowerDirLayer(rootUrl, containerName); err != nil {
+		return err
+	}
+	return mountVolume(mntUrl+containerName+"/", volumeUrls, rootUrl+"temp/mnt_workdir/"+containerName+"/", rootUrl+"temp/mnt_lowerdir/"+containerName+"/")
 }
 
-func mountVolume(mntUrl string, volumeUrls []string, workdir string) error {
+func mountVolume(mntUrl string, volumeUrls []string, workdir string, lowerdir string) error {
 	parentUrl := volumeUrls[0]
 	exist, err := pathExist(parentUrl)
 	if err != nil && !os.IsNotExist(err) {
@@ -182,7 +198,7 @@ func mountVolume(mntUrl string, volumeUrls []string, workdir string) error {
 	if err := os.MkdirAll(containerUrl, 0777); err != nil {
 		return fmt.Errorf("mkdir container volume err: %v", err)
 	}
-	dirs := "upperdir=" + parentUrl + ",workdir=" + workdir
+	dirs := "lowerdir=" + lowerdir + ",upperdir=" + parentUrl + ",workdir=" + workdir
 	log.Infof("mount", "-t", "overlay", "-o", dirs, "overlay", containerUrl)
 	fmt.Println("mount", "-t", "overlay", "-o", dirs, "overlay", containerUrl)
 	cmd := exec.Command("mount", "-t", "overlay", "-o", dirs, "overlay", containerUrl)
